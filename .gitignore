@@ -1,0 +1,15 @@
+# Docker workspace artifacts
+docker/build/
+docker/install/
+docker/log/
+
+# ROS2 colcon artifacts
+humble_ws/build/
+humble_ws/install/
+humble_ws/log/
+
+# External dependency repos cloned under humble_ws/src
+humble_ws/src/HesaiLidar_ROS2_techshare/
+humble_ws/src/direct_lidar_inertial_odometry/
+humble_ws/src/go2_unitree_ros2/
+humble_ws/src/unitree_ros2/
