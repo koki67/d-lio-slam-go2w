@@ -1,45 +1,163 @@
+# d-lio-slam-go2w
 
-https://techshare.co.jp/faq/?p=345881&preview=true
+GO2-W + Hesai XT16 + D-LIO SLAM on ROS 2 Humble, running in a Docker container on the robot-side computer.
 
-# Make a docker image and a docker container
+This repository is based on:
+
+- TechShare article: https://techshare.co.jp/faq/unitree/xt16-on-go2_d-lio.html
+- Original package bundle: https://github.com/TechShare-inc/faq_go2_xt16
+
+## What Is Customized Here
+
+This setup is adapted for **GO2-W**.
+
+Main difference from the original GO2 article flow:
+
+- GO2-W in this environment does not provide usable IMU from `sportmodestate`.
+- IMU is taken from `lowstate` and republished to `/go2/imu` for D-LIO.
+
+## Repository Contents
+
+This top-level repository intentionally tracks only wrapper/config files:
+
+- `docker/Dockerfile`: ROS 2 Humble image for ARM64 Ubuntu Jammy
+- `docker/humble.sh`: starts the container with host network and X11
+- `humble_ws/src/test_catmux.yaml`: launches IMU publisher + XT16 + D-LIO
+- `faq.html`: archived copy of the related TechShare FAQ page
+
+Dependency source repos under `humble_ws/src/` are local clones and are ignored by `.gitignore`.
+
+## Prerequisites
+
+- Unitree GO2-W with XT16
+- Ubuntu Jammy ARM64 environment on robot-side compute (for example Orin NX)
+- Docker and NVIDIA container runtime (or edit `docker/humble.sh` if `--runtime=nvidia` is unavailable)
+- Internet access to clone repositories and install packages
+- Network configured so XT16 is reachable (article example uses `192.168.123.20`)
+
+## Setup
+
+1. Clone this repository.
+
+```sh
+git clone https://github.com/koki67/d-lio-slam-go2w.git
+cd d-lio-slam-go2w
+```
+
+2. Clone required ROS packages.
+
+```sh
+cd humble_ws/src
+git clone https://github.com/TechShare-inc/go2_unitree_ros2.git -b imu_publisher
+git clone https://github.com/TechShare-inc/HesaiLidar_ROS2_techshare.git
+git clone https://github.com/unitreerobotics/unitree_ros2.git
+git clone https://github.com/TechShare-inc/direct_lidar_inertial_odometry.git -b feature/ros2
+cd ../..
+```
+
+Note: the TechShare article previously referenced `HesaiLidar_General_ROS-ROS2`; this repository uses `HesaiLidar_ROS2_techshare`.
+
+3. Build Docker image.
 
 ```sh
 cd docker
 docker build -t go2-humble:latest .
+cd ..
 ```
 
+4. Start container (from `humble_ws`).
 
 ```sh
-git clone https://github.com/TechShare-inc/go2_unitree_ros2.git -b imu_publisher
-git clone https://github.com/TechShare-inc/HesaiLidar_General_ROS-ROS2.git
-git clone https://github.com/unitreerobotics/unitree_ros2.git
-git clone https://github.com/TechShare-inc/direct_lidar_inertial_odometry.git
+cd humble_ws
+bash ../docker/humble.sh
 ```
 
-```
-$ cd ..
-$ bash ../docker/humble.sh
-# cd external/
-# colcon build --symlink-install
-```
+`humble.sh` mounts current directory to `/external` in container.
 
-# unitree_ros2
+5. Build workspace (inside container).
 
-setup.sh
 ```sh
-#!/bin/bash
-echo "Setup unitree ros2 environment"
-#source /opt/ros/foxy/setup.bash
-source $HOME/unitree_ros2/cyclonedds_ws/install/setup.bash
-export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+cd /external
+colcon build --symlink-install
+```
+
+## GO2-W Required Code Adjustments
+
+Apply these edits in the cloned dependency repos inside `humble_ws/src`.
+
+1. `go2_unitree_ros2/src/devel/imu_publisher.cpp`
+
+- subscribe topic: `lowstate`
+- message type: `unitree_go::msg::LowState`
+- QoS: `rclcpp::SensorDataQoS()`
+- publish converted IMU to `/go2/imu`
+
+2. `unitree_ros2/setup.sh`
+
+- set DDS interfaces for both `eth0` and `wlan0`
+- use `rmw_cyclonedds_cpp`
+
+Current value used in this setup:
+
+```sh
 export CYCLONEDDS_URI='<CycloneDDS><Domain><General><Interfaces>
-                            <NetworkInterface name="eth0" priority="1" multicast="default" />
-                            <NetworkInterface name="wlan0" priority="2" multicast="default" />
+                            <NetworkInterface name="eth0" priority="1" multicast="true" />
+                            <NetworkInterface name="wlan0" priority="2" multicast="true" />
                         </Interfaces></General></Domain></CycloneDDS>'
 ```
 
-rviz
+3. `direct_lidar_inertial_odometry/cfg/params.yaml`
+
+Typical GO2-W tuning used here:
+
+- `use_sim_time: false`
+- `map/waitUntilMove: false`
+- `map/sparse/leafSize: 0.01`
+- `odom/preprocessing/cropBoxFilter/size: 0.4`
+- `odom/preprocessing/voxelFilter/res: 0.03`
+- `odom/keyframe/threshD: 0.4`
+- `odom/keyframe/threshR: 30.0`
+
+## Run D-LIO
+
+Inside the container:
+
 ```sh
-$ rviz2 -d direct_lidar_inertial_odometry/launch/dlio.rviz
+cd /external/src
+catmux_create_session test_catmux.yaml
 ```
 
+This starts:
+
+- `ros2 run go2_demo imu_publisher`
+- `ros2 launch hesai_lidar hesai_lidar_launch.py`
+- `ros2 launch direct_lidar_inertial_odometry dlio.launch.py`
+
+## Visualization
+
+If visualizing locally in the container:
+
+```sh
+source /external/install/setup.bash
+source /external/src/unitree_ros2/setup.sh
+rviz2 -d /external/src/direct_lidar_inertial_odometry/launch/dlio.rviz
+```
+
+If visualizing from an external PC, configure CycloneDDS to use the PC-side network interface on the same network (for example `wlan0`) and then run RViz on that PC.
+
+## Quick Checks
+
+Inside container after startup:
+
+```sh
+source /external/install/setup.bash
+source /external/src/unitree_ros2/setup.sh
+ros2 topic list | grep -E 'go2/imu|lowstate|hesai'
+ros2 topic hz /go2/imu
+```
+
+## Notes on Version Control
+
+- Top-level repository tracks only orchestration/config files.
+- `humble_ws/src/*` dependency repos are ignored to avoid huge generated/unrelated changes.
+- If you want reproducibility across machines, push your modified dependency repos to your own forks and update clone URLs in this README.
