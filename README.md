@@ -158,7 +158,14 @@ catmux_create_session record_catmux.yaml
 
 Four tmux windows open — `imu_publisher`, `hesai_lidar_node`, `dlio` (same as the normal run) — plus a new `bag_record` window that records all SLAM topics to a timestamped directory under `/external/bags/`.
 
-To stop: press `Ctrl+C` in the `bag_record` window, then `tmux kill-session`.
+To stop cleanly: press `Ctrl+C` in the `bag_record` window (this flushes and closes the database), then `tmux kill-session` to end the whole session. To stop only recording while keeping SLAM running, press `Ctrl+C` in `bag_record` only.
+
+**If the SSH connection drops mid-recording:** the tmux session keeps running on the robot — recording continues uninterrupted. SSH back in and run `tmux attach-session` to reattach and stop it cleanly.
+
+**If the robot is powered off without stopping the recording:** the data already written to disk is safe (rosbag2 uses SQLite3, which writes continuously). Only `metadata.yaml` may be missing. Recover it with:
+```sh
+ros2 bag reindex /external/bags/slam_YYYYMMDD_HHMMSS
+```
 
 Bags are saved to `humble_ws/bags/` in this repository (= `/external/bags/` inside the container).
 
@@ -215,19 +222,18 @@ If you want to replay bags on a desktop PC (not on the robot), use the VS Code D
 
 2. Open this repository folder in VS Code. When prompted, click **Reopen in Container**, or run **Dev Containers: Reopen in Container** from the Command Palette (`Ctrl+Shift+P`).
 
-3. Once the container is ready, open two integrated terminals (`Ctrl+` `` ` ``):
+3. Once the container is ready, open one integrated terminal and run:
 
-**Terminal 1 — play the bag:**
 ```sh
-ros2 bag play humble_ws/bags/slam_YYYYMMDD_HHMMSS --clock --loop
+bash config/playback.sh humble_ws/bags/slam_YYYYMMDD_HHMMSS
 ```
 
-**Terminal 2 — open RViz2:**
-```sh
-rviz2 -d config/dlio.rviz
-```
+RViz2 opens automatically alongside the bag player. The bag loops continuously. Close the RViz2 window (or press `Ctrl+C`) to stop both.
 
-RViz2 will show the dense map being built up, the current LiDAR scan, and the robot trajectory (keyframe poses). The bag loops continuously.
+To play back at a different speed, add `--rate`:
+```sh
+bash config/playback.sh humble_ws/bags/slam_YYYYMMDD_HHMMSS --rate 2.0
+```
 
 > **Note:** `config/dlio.rviz` is a tracked copy of the RViz config pre-configured for playback (Keyframes display enabled, Trajectory display disabled since the path topic is not recorded). The robot-side docker uses the copy in `humble_ws/src/direct_lidar_inertial_odometry/launch/` instead.
 
