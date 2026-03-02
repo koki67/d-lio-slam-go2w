@@ -197,6 +197,40 @@ To stop: press `Ctrl+C` in the `bag_play` window, then `tmux kill-session`.
 
 **To play back faster** (e.g., 2× speed), add `--rate 2.0` to the `ros2 bag play` command in `playback_catmux.yaml`.
 
+## Bag Playback on a Desktop via DevContainer
+
+If you want to replay bags on a desktop PC (not on the robot), use the VS Code DevContainer defined in `.devcontainer/`. It pulls the official `ros:humble-desktop` image (amd64) with RViz2 and `ros2 bag` already installed — no manual Docker setup needed.
+
+### Prerequisites
+
+- VS Code with the **Dev Containers** extension (`ms-vscode-remote.remote-containers`)
+- Docker installed on the desktop
+- On **Linux**: run `xhost +local:docker` once in your host terminal before opening the container (allows the container to draw GUI windows on your screen)
+- On **macOS**: install [XQuartz](https://www.xquartz.org), then set `DISPLAY=host.docker.internal:0` in `.devcontainer/devcontainer.json`
+- On **Windows**: WSLg provides display forwarding automatically; no extra steps needed
+
+### Steps
+
+1. Copy your bag directory from the robot to `humble_ws/bags/` on the desktop (e.g. via `scp` or a USB drive).
+
+2. Open this repository folder in VS Code. When prompted, click **Reopen in Container**, or run **Dev Containers: Reopen in Container** from the Command Palette (`Ctrl+Shift+P`).
+
+3. Once the container is ready, open two integrated terminals (`Ctrl+` `` ` ``):
+
+**Terminal 1 — play the bag:**
+```sh
+ros2 bag play humble_ws/bags/slam_YYYYMMDD_HHMMSS --clock --loop
+```
+
+**Terminal 2 — open RViz2:**
+```sh
+rviz2 -d config/dlio.rviz
+```
+
+RViz2 will show the dense map being built up, the current LiDAR scan, and the robot trajectory (keyframe poses). The bag loops continuously.
+
+> **Note:** `config/dlio.rviz` is a tracked copy of the RViz config pre-configured for playback (Keyframes display enabled, Trajectory display disabled since the path topic is not recorded). The robot-side docker uses the copy in `humble_ws/src/direct_lidar_inertial_odometry/launch/` instead.
+
 ## Quick Checks
 
 Inside container after startup:
