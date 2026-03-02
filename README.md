@@ -233,6 +233,17 @@ ros2 topic list | grep -E 'go2/imu|lowstate|hesai'
 ros2 topic hz /go2/imu
 ```
 
+## Acknowledgments
+
+This repository builds on the work of the following projects:
+
+- **[Direct LiDAR-Inertial Odometry (D-LIO)](https://github.com/vectr-ucla/direct_lidar_inertial_odometry)** — Kenny J. Chen, Ryan Nemiroff, Brett T. Lopez (UCLA VECTR Lab). Licensed under MIT.
+- **[TechShare GO2 + XT16 integration](https://github.com/TechShare-inc/faq_go2_xt16)** — TechShare Inc. Article and `go2_unitree_ros2` package providing the foundation for this setup. Note: `go2_unitree_ros2` does not carry an explicit license declaration; it is used here solely for GO2-W adaptation with full credit to TechShare.
+- **[unitree_ros2](https://github.com/unitreerobotics/unitree_ros2)** — Unitree Robotics. Licensed under BSD 3-Clause.
+- **[HesaiLidar_ROS2_techshare](https://github.com/TechShare-inc/HesaiLidar_ROS2_techshare)** — TechShare Inc. / Hesai Technology. Licensed under Apache 2.0.
+
+The orchestration files in this repository (Docker setup, catmux sessions, config tuning) are original work and released under the [MIT License](LICENSE).
+
 ## Notes on Version Control
 
 - Dependency repos under `humble_ws/src/` are git submodules pinned to specific commits in koki67's forks.
