@@ -56,7 +56,7 @@ Visualization Manager:
           Value: true
         - Alpha: 1
           Class: rviz_default_plugins/Axes
-          Enabled: true
+          Enabled: false
           Length: 1
           Name: odom
           Radius: 0.25
@@ -65,7 +65,7 @@ Visualization Manager:
           Value: false
         - Alpha: 1
           Class: rviz_default_plugins/Axes
-          Enabled: true
+          Enabled: false
           Length: 1
           Name: base_link
           Radius: 0.25
@@ -187,7 +187,7 @@ Visualization Manager:
               Scale: 1
               Value: true
             Value: false
-          Enabled: false
+          Enabled: true
           Keep: 1
           Name: Pose
           Position Tolerance: 0.009999999776482582
@@ -204,14 +204,14 @@ Visualization Manager:
             Value: Axes
           Topic: /dlio/odom_node/odom
           Unreliable: false
-          Value: false
+          Value: true
         - Alpha: 1
           Arrow Length: 0.30000001192092896
           Axes Length: 0.5
           Axes Radius: 0.10000000149011612
           Class: rviz_default_plugins/PoseArray
           Color: 255; 25; 0
-          Enabled: true
+          Enabled: false
           Head Length: 0.07000000029802322
           Head Radius: 0.029999999329447746
           Name: Keyframes
@@ -226,7 +226,7 @@ Visualization Manager:
           Buffer Length: 1
           Class: rviz_default_plugins/Path
           Color: 255; 209; 0
-          Enabled: false
+          Enabled: true
           Head Diameter: 0.30000001192092896
           Head Length: 0.20000000298023224
           Length: 0.30000001192092896
@@ -245,7 +245,7 @@ Visualization Manager:
           Shaft Length: 0.10000000149011612
           Topic: /dlio/odom_node/path
           Unreliable: false
-          Value: false
+          Value: true
       Enabled: true
       Name: Odometry
   Enabled: true

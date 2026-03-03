@@ -192,7 +192,7 @@ To play back at a different speed, add `--rate`:
 bash config/playback.sh humble_ws/bags/slam_YYYYMMDD_HHMMSS --rate 2.0
 ```
 
-> **Note:** `config/dlio.rviz` is a tracked copy of the RViz config pre-configured for playback (Keyframes display enabled, Trajectory display disabled since the path topic is not recorded). The robot-side docker uses the copy in `humble_ws/src/direct_lidar_inertial_odometry/launch/` instead.
+> **Note:** `config/dlio.rviz` is a tracked copy of the RViz config pre-configured for playback (Dense Map, Trajectory, and Pose displays enabled). The robot-side docker uses the copy in `humble_ws/src/direct_lidar_inertial_odometry/launch/` instead.
 
 ## Playing Back on the Robot
 
@@ -214,7 +214,7 @@ catmux_create_session playback_catmux.yaml
 
 Two tmux windows open: `bag_play` (replays all recorded topics with clock synchronization) and `rviz2` (shows the accumulated map and point clouds). The bag loops continuously.
 
-> **Trajectory in RViz:** The robot path is not recorded as a continuous line (the ROS path message grows without bound and would dominate bag size). Instead, enable the **Keyframes** display in the RViz Displays panel — it shows the sparse set of keyframe poses that traces the robot's route.
+> **Trajectory in RViz:** The robot path is recorded as `/dlio/odom_node/path` and replayed by the **Trajectory** display in RViz.
 
 To stop: press `Ctrl+C` in the `bag_play` window, then `tmux kill-session`.
 
