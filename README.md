@@ -26,6 +26,7 @@ This top-level repository intentionally tracks only wrapper/config files:
 - `humble_ws/src/record_catmux.yaml`: records D-LIO outputs for replay/visualization
 - `humble_ws/src/record_shared_raw_catmux.yaml`: records shared raw `/go2w/imu` + `/points_raw` for offline D-LIO + GLIM
 - `humble_ws/src/record_glim_raw_catmux.yaml`: records raw `/go2w/imu` + `/points_raw` for offline GLIM
+- `config/reconstruct_shared_raw_dlio.sh`: replays a shared raw bag, launches D-LIO offline, and opens RViz
 - `faq.html`: archived copy of the related TechShare FAQ page
 
 Dependency source repos under `humble_ws/src/` are git submodules pointing to GO2-W forks.
@@ -263,6 +264,8 @@ The default bag should contain exactly these required topics:
 - The existing GLIM raw-bag workflow in this repository already treats the same two topics as the required offline inputs.
 - Runtime validation with a real shared raw bag still needs to be done on the robot and desktop; this repository change only adds the recording path and documentation.
 
+For **offline D-LIO**, the correct workflow is to replay the shared raw bag while running D-LIO against `/go2w/imu` and `/points_raw`. Do **not** expect `config/playback.sh` or `playback_catmux.yaml` to work on `shared_raw_...` bags, because those tools assume the bag already contains D-LIO outputs.
+
 ## Recording a Raw-Sensor Bag for Offline GLIM
 
 Use this path when the goal is to generate a clean, GLIM-labeled rosbag for the existing **offline GLIM** workflow on a desktop machine.
@@ -352,7 +355,41 @@ python3 /path/to/glim-slam-go2w/tools/check_glim_bag.py /path/to/glim_raw_bag \
 
 That checker should confirm that the bag includes the required raw IMU and LiDAR inputs for offline GLIM. Runtime validation with a real raw bag still needs to be done on the robot; this repository only adds the recording path and documentation.
 
-## Playing Back a Recorded Session
+## Reconstructing D-LIO From a Shared Raw Bag
+
+Use this workflow for `shared_raw_YYYYMMDD_HHMMSS` bags when you want to regenerate D-LIO outputs offline.
+
+Unlike `slam_...` replay bags, a shared raw bag does **not** already contain `/map`, `/dlio/odom_node/odom`, `/dlio/odom_node/path`, or `/tf`. The correct workflow is:
+
+1. replay the raw bag with `/clock`
+2. run D-LIO against the replayed `/go2w/imu` and `/points_raw` topics
+3. visualize the generated D-LIO outputs in RViz
+
+Copy your shared raw bag directory from the robot to `humble_ws/bags/` on the desktop (e.g. via `scp` or a USB drive), then use the VS Code DevContainer defined in `.devcontainer/`.
+
+### Steps
+
+1. Open this repository folder in VS Code. When prompted, click **Reopen in Container**, or run **Dev Containers: Reopen in Container** from the Command Palette (`Ctrl+Shift+P`).
+
+2. Once the container is ready, open one integrated terminal and run:
+
+```sh
+bash config/reconstruct_shared_raw_dlio.sh humble_ws/bags/shared_raw_YYYYMMDD_HHMMSS
+```
+
+That script launches D-LIO with `use_sim_time:=true`, replays the shared raw bag with `--clock`, and opens RViz against the generated D-LIO outputs.
+
+To replay at a different speed, add normal `ros2 bag play` arguments such as `--rate`:
+
+```sh
+bash config/reconstruct_shared_raw_dlio.sh humble_ws/bags/shared_raw_YYYYMMDD_HHMMSS --rate 2.0
+```
+
+> **Important:** `config/playback.sh` is for `slam_...` output bags only. It does not launch D-LIO, so it is not the right workflow for `shared_raw_...` bags.
+
+## Playing Back a Recorded Output Bag
+
+Use this workflow only for `slam_YYYYMMDD_HHMMSS` bags recorded by `record_catmux.yaml`. Those bags already contain D-LIO outputs, so they can be visualized by replay alone.
 
 Copy your bag directory from the robot to `humble_ws/bags/` on the desktop (e.g. via `scp` or a USB drive), then use the VS Code DevContainer defined in `.devcontainer/`. It pulls `osrf/ros:humble-desktop` (amd64) with RViz2 and `ros2 bag` already installed — no manual Docker setup needed.
 
@@ -383,7 +420,9 @@ bash config/playback.sh humble_ws/bags/slam_YYYYMMDD_HHMMSS --rate 2.0
 
 > **Note:** `config/dlio.rviz` is a tracked copy of the RViz config pre-configured for playback (Dense Map, Trajectory, and Pose displays enabled). The robot-side docker uses the copy in `humble_ws/src/direct_lidar_inertial_odometry/launch/` instead.
 
-## Playing Back on the Robot
+## Playing Back an Output Bag on the Robot
+
+This robot-side playback flow is also for `slam_...` output bags only.
 
 To replay a bag directly on the robot without transferring it to a desktop:
 
