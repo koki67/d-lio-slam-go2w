@@ -26,6 +26,7 @@ This top-level repository intentionally tracks only wrapper/config files:
 - `humble_ws/src/record_catmux.yaml`: records D-LIO outputs for replay/visualization
 - `humble_ws/src/record_shared_raw_catmux.yaml`: records shared raw `/go2w/imu` + `/points_raw` for offline D-LIO + GLIM
 - `humble_ws/src/record_glim_raw_catmux.yaml`: records raw `/go2w/imu` + `/points_raw` for offline GLIM
+- `.devcontainer/`: desktop container config that installs offline D-LIO build dependencies and builds the D-LIO package automatically
 - `config/reconstruct_shared_raw_dlio.sh`: replays a shared raw bag, launches D-LIO offline, and opens RViz
 - `faq.html`: archived copy of the related TechShare FAQ page
 
@@ -367,17 +368,27 @@ Unlike `slam_...` replay bags, a shared raw bag does **not** already contain `/m
 
 Copy your shared raw bag directory from the robot to `humble_ws/bags/` on the desktop (e.g. via `scp` or a USB drive), then use the VS Code DevContainer defined in `.devcontainer/`.
 
+The desktop devcontainer now prepares the offline D-LIO environment automatically:
+
+- installs the extra build dependencies needed by `direct_lidar_inertial_odometry`
+- builds only the D-LIO package into `.devcontainer/offline_dlio/`
+- leaves the robot-side `humble_ws/build`, `humble_ws/install`, and `humble_ws/log` trees untouched
+
+That means you do **not** need a manual full `colcon build` of the entire robot workspace just to reconstruct and visualize a shared raw bag on desktop.
+
 ### Steps
 
 1. Open this repository folder in VS Code. When prompted, click **Reopen in Container**, or run **Dev Containers: Reopen in Container** from the Command Palette (`Ctrl+Shift+P`).
 
-2. Once the container is ready, open one integrated terminal and run:
+2. Wait for the devcontainer `postCreateCommand` to finish. It installs the desktop D-LIO dependencies and builds the D-LIO package once.
+
+3. Once the container is ready, open one integrated terminal and run:
 
 ```sh
 bash config/reconstruct_shared_raw_dlio.sh humble_ws/bags/shared_raw_YYYYMMDD_HHMMSS
 ```
 
-That script launches D-LIO with `use_sim_time:=true`, replays the shared raw bag with `--clock`, and opens RViz against the generated D-LIO outputs.
+That script prefers the desktop-only install under `.devcontainer/offline_dlio/install/`, launches D-LIO with `use_sim_time:=true`, replays the shared raw bag with `--clock`, and opens RViz against the generated D-LIO outputs.
 
 To replay at a different speed, add normal `ros2 bag play` arguments such as `--rate`:
 
@@ -387,11 +398,13 @@ bash config/reconstruct_shared_raw_dlio.sh humble_ws/bags/shared_raw_YYYYMMDD_HH
 
 > **Important:** `config/playback.sh` is for `slam_...` output bags only. It does not launch D-LIO, so it is not the right workflow for `shared_raw_...` bags.
 
+> **If your devcontainer already existed before this automation was added:** run `bash .devcontainer/postCreate.sh` once inside the container to install the desktop D-LIO dependencies and create `.devcontainer/offline_dlio/install/setup.bash`.
+
 ## Playing Back a Recorded Output Bag
 
 Use this workflow only for `slam_YYYYMMDD_HHMMSS` bags recorded by `record_catmux.yaml`. Those bags already contain D-LIO outputs, so they can be visualized by replay alone.
 
-Copy your bag directory from the robot to `humble_ws/bags/` on the desktop (e.g. via `scp` or a USB drive), then use the VS Code DevContainer defined in `.devcontainer/`. It pulls `osrf/ros:humble-desktop` (amd64) with RViz2 and `ros2 bag` already installed — no manual Docker setup needed.
+Copy your bag directory from the robot to `humble_ws/bags/` on the desktop (e.g. via `scp` or a USB drive), then use the VS Code DevContainer defined in `.devcontainer/`. It is built on top of `osrf/ros:humble-desktop` (amd64) and still includes RViz2 and `ros2 bag` for simple output-bag playback.
 
 ### Prerequisites
 
