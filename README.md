@@ -24,6 +24,7 @@ This top-level repository intentionally tracks only wrapper/config files:
 - `docker/humble.sh`: starts the container with host network and X11
 - `humble_ws/src/test_catmux.yaml`: launches IMU publisher + XT16 + D-LIO
 - `humble_ws/src/record_catmux.yaml`: records D-LIO outputs for replay/visualization
+- `humble_ws/src/record_shared_raw_catmux.yaml`: records shared raw `/go2w/imu` + `/points_raw` for offline D-LIO + GLIM
 - `humble_ws/src/record_glim_raw_catmux.yaml`: records raw `/go2w/imu` + `/points_raw` for offline GLIM
 - `faq.html`: archived copy of the related TechShare FAQ page
 
@@ -165,13 +166,113 @@ ros2 bag info /external/bags/slam_YYYYMMDD_HHMMSS
 
 > **What is recorded:** Only SLAM output topics needed for visualization — not raw sensor data. The dominant stream is `/dlio/odom_node/pointcloud/deskewed` (motion-corrected LiDAR scan, ~10 Hz). If disk space is tight, remove that topic from `record_catmux.yaml`; the accumulated map (`/map`) and trajectory (`/dlio/odom_node/keyframes`) will still replay correctly.
 
+## Recording Mode Guide
+
+Use the recorder that matches the downstream task instead of defaulting to one large bag:
+
+| Mode | Recorder | Use when | Default storage intent |
+|---|---|---|---|
+| Lightweight D-LIO output replay | `record_catmux.yaml` | You want a replay/visualization bag for RViz and quick review of mapping outputs | Smallest purpose-specific replay bag |
+| Shared raw-input bag | `record_shared_raw_catmux.yaml` | You want one compact raw bag that should support both offline D-LIO and offline GLIM | Compact middle ground; smallest bag that should support both pipelines |
+| Extended diagnostics | Start from `record_shared_raw_catmux.yaml` and temporarily add `lowstate` and/or `/pandar_packets` | You are troubleshooting IMU republishing, Hesai packets, or recorder/input issues | Largest; use only when debugging |
+
+**Bag naming guide:**
+
+- `slam_YYYYMMDD_HHMMSS`: D-LIO replay/output bag
+- `shared_raw_YYYYMMDD_HHMMSS`: preferred shared raw-input bag for offline D-LIO + GLIM
+- `glim_raw_YYYYMMDD_HHMMSS`: existing GLIM-labeled raw-input bag
+- `diag_raw_YYYYMMDD_HHMMSS`: recommended manual prefix if you temporarily create a diagnostic variant
+
+## Recording a Shared Raw-Input Bag for Offline D-LIO or GLIM
+
+Use this path when you want one compact rosbag that captures the minimum shared raw inputs needed by both **offline D-LIO** and **offline GLIM**.
+
+This sits between the other two recording philosophies:
+
+- smaller and cleaner than a diagnostic bag with extra troubleshooting topics
+- richer than the replay-only `record_catmux.yaml` output bag
+
+This recording path is intentionally separate from the other recorders:
+
+- `record_catmux.yaml`: records D-LIO outputs plus `/tf` and `/tf_static` for replay/visualization
+- `record_shared_raw_catmux.yaml`: records only the shared raw inputs needed by both offline D-LIO and offline GLIM
+- extended diagnostic bag: starts from the shared raw-input bag and temporarily adds `lowstate` and/or `/pandar_packets`
+
+The default shared raw topics are:
+
+- `/go2w/imu`
+- `/points_raw`
+
+These come from the current live robot-side stack:
+
+- `ros2 run go2_demo imu_publisher` republishes IMU from `lowstate` onto `/go2w/imu`
+- `ros2 launch hesai_lidar hesai_lidar_launch.py` publishes LiDAR points on `/points_raw`
+
+The shared raw-input bag does **not** record D-LIO outputs, `/tf`, `/tf_static`, `/map`, `lowstate`, or `/pandar_packets` by default. That keeps the bag intentionally compact while still capturing the inputs the two offline pipelines share.
+
+### Start the shared raw-input recording session
+
+As with the other recording flows, use a persistent `screen` session on the robot host so recording survives SSH disconnections:
+
+```sh
+screen -S shared_raw
+```
+
+Then start Docker and launch the shared raw-input catmux session:
+
+```sh
+cd humble_ws
+bash ../docker/humble.sh
+```
+
+```sh
+# Now inside Docker:
+cd /external/src
+catmux_create_session record_shared_raw_catmux.yaml
+```
+
+Three tmux windows open:
+
+- `imu_publisher`
+- `hesai_lidar_node`
+- `bag_record`
+
+The bag recorder writes to a timestamped directory under `/external/bags/` using this naming convention:
+
+```text
+/external/bags/shared_raw_YYYYMMDD_HHMMSS
+```
+
+### Check what was recorded
+
+After stopping the `bag_record` window with `Ctrl+C`, inspect the bag:
+
+```sh
+source /external/install/setup.bash
+ros2 bag info /external/bags/shared_raw_YYYYMMDD_HHMMSS
+```
+
+The default bag should contain exactly these required topics:
+
+- `/go2w/imu`
+- `/points_raw`
+
+### Why this should support both offline D-LIO and offline GLIM
+
+- The current D-LIO launch defaults map `pointcloud` to `points_raw` and `imu` to `go2w/imu`.
+- The existing GLIM raw-bag workflow in this repository already treats the same two topics as the required offline inputs.
+- Runtime validation with a real shared raw bag still needs to be done on the robot and desktop; this repository change only adds the recording path and documentation.
+
 ## Recording a Raw-Sensor Bag for Offline GLIM
 
-Use this path when the goal is to generate a clean rosbag for **offline GLIM** on a desktop machine.
+Use this path when the goal is to generate a clean, GLIM-labeled rosbag for the existing **offline GLIM** workflow on a desktop machine.
+
+For new captures that are meant to serve **both** offline D-LIO and offline GLIM, prefer `record_shared_raw_catmux.yaml`. This GLIM-specific path remains available unchanged for compatibility and for workflows that want to keep the existing `glim_raw_...` naming.
 
 This recording path is intentionally separate from `record_catmux.yaml`:
 
 - `record_catmux.yaml`: records D-LIO outputs plus `/tf` and `/tf_static` for replay/visualization
+- `record_shared_raw_catmux.yaml`: records the minimum shared raw inputs for both offline D-LIO and offline GLIM
 - `record_glim_raw_catmux.yaml`: records only the raw inputs needed by offline GLIM
 
 The current default raw topics are:
